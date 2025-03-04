@@ -1,9 +1,3 @@
-# helloworld
+# 撰写AI绘画提示词的插件
 
-AstrBot 插件模板
-
-A template plugin for AstrBot plugin feature
-
-# 支持
-
-[帮助文档](https://astrbot.app)
+输入 /提示词 {生成内容}。
