@@ -1,21 +1,46 @@
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
+import aiohttp
+import json
+import ssl
 
-@register("helloworld", "YourName", "一个简单的 Hello World 插件", "1.0.0")
+@register("prompt_plus", "羽灯鬼", "Prompt Plus", "1.0.0","https://github.com/yudengghost/astrbot_plugin_prompt_plus")
 class MyPlugin(Star):
     def __init__(self, context: Context):
         super().__init__(context)
     
-    # 注册指令的装饰器。指令名为 helloworld。注册成功后，发送 `/helloworld` 就会触发这个指令，并回复 `你好, {user_name}!`
-    @filter.command("helloworld")
-    async def helloworld(self, event: AstrMessageEvent):
-        '''这是一个 hello world 指令''' # 这是 handler 的描述，将会被解析方便用户了解插件内容。建议填写。
-        user_name = event.get_sender_name()
-        message_str = event.message_str # 用户发的纯文本消息字符串
-        message_chain = event.get_messages() # 用户所发的消息的消息链 # from astrbot.api.message_components import *
-        logger.info(message_chain)
-        yield event.plain_result(f"Hello, {user_name}, 你发了 {message_str}!") # 发送一条纯文本消息
-
-    async def terminate(self):
-        '''可选择实现 terminate 函数，当插件被卸载/停用时会调用。'''
+    @filter.command("提示词")
+    async def prompt(self, event: AstrMessageEvent):
+        """使用AI模型生成回复的提示词命令"""
+        # 获取用户消息
+        user_message = event.message_str
+        
+        # 发送等待提示
+        yield event.plain_result("收到了，请稍候🥸")
+        
+        try:
+            # 准备请求数据
+            data = {
+                "prompt": "下面将会给出非常高级的图片描述，丰富这段文本的表现力并转化为保留较多关键信息的关键词组，按照画面质量描述与风格词汇、主体描述、细节描述的顺序以逗号分隔， 40 词左右，英文小写输出，合并为一行:" + user_message,
+                "id": "0"
+            }
+            
+            # 创建不验证SSL的客户端
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            # 发送请求
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
+                async with session.post('https://prompt-gpt.deno.dev/ai', json=data) as response:
+                    if response.status == 200:
+                        result = await response.text()
+                        yield event.plain_result(f"{result}")
+                    else:
+                        yield event.plain_result(f"请求失败，状态码：{response.status}")
+        except Exception as e:
+            logger.error(f"处理提示词命令时出错: {str(e)}")
+            yield event.plain_result(f"抱歉，处理请求时出现错误: {str(e)}")
+            # 打印详细错误信息到日志
+            logger.error(f"详细错误信息: {e}", exc_info=True)
